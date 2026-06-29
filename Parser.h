@@ -27,6 +27,9 @@ private:
     vector<Stmt> block();
     Stmt printStatement();
     Stmt expressionStatement();
+    Stmt ifStatement();
+    Stmt whileStatement();
+    Stmt forStatement();
 
     Expr expression();
     Expr assignment();
@@ -36,6 +39,8 @@ private:
     Expr factor();
     Expr unary();
     Expr primary();
+    Expr logic_or();
+    Expr logic_and();
 
     bool match(initializer_list<TokenType> types);
     bool check(TokenType type);

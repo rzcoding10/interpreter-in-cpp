@@ -8,6 +8,7 @@ using namespace std;
 struct Binary;
 struct Grouping;
 struct LiteralExpr;
+struct Logical;
 struct Unary;
 struct Variable;
 struct Assign;
@@ -18,6 +19,7 @@ using Expr = variant<
     unique_ptr<Binary>,
     unique_ptr<Grouping>,
     unique_ptr<LiteralExpr>,
+    std::unique_ptr<Logical>,
     unique_ptr<Unary>,
     unique_ptr<Variable>
 >;
@@ -79,4 +81,13 @@ struct Assign
 
     Assign(Token name, Expr value)
         : name(std::move(name)), value(std::move(value)) {}
+};
+
+struct Logical {
+    Expr left;
+    Token op;
+    Expr right;
+
+    Logical(Expr left, Token op, Expr right)
+        : left(std::move(left)), op(std::move(op)), right(std::move(right)) {}
 };

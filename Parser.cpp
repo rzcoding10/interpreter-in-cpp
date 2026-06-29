@@ -12,7 +12,7 @@ Expr Parser::expression()
 
 Expr Parser::assignment() 
 {
-        Expr expr = equality(); 
+        Expr expr = logic_or(); 
 
         if (match({TokenType::EQUAL})) 
         {
@@ -27,6 +27,34 @@ Expr Parser::assignment()
         }
 
         return expr;
+}
+
+Expr Parser::logic_or() 
+{
+    Expr expr = logic_and();
+
+    while (match({TokenType::OR})) 
+    {
+        Token op = previous();
+        Expr right = logic_and();
+        expr = std::make_unique<Logical>(std::move(expr), std::move(op), std::move(right));
+    }
+
+    return expr;
+}
+
+Expr Parser::logic_and() 
+{
+    Expr expr = equality();
+
+    while (match({TokenType::AND})) 
+    {
+        Token op = previous();
+        Expr right = equality();
+        expr = std::make_unique<Logical>(std::move(expr), std::move(op), std::move(right));
+    }
+
+    return expr;
 }
 
 Expr Parser::equality()
@@ -169,9 +197,23 @@ Stmt Parser::varDeclaration() {
 
 Stmt Parser::statement() 
 {
+    if (match({TokenType::FOR})) 
+    {    
+        return forStatement();
+    }
+
+    if (match({TokenType::IF})) 
+    {
+        return ifStatement();
+    }
+
     if (match({TokenType::PRINT})) 
     {
         return printStatement();
+    }
+
+    if (match({TokenType::WHILE})) {
+        return whileStatement();
     }
 
     if (match({TokenType::LEFT_BRACE})) 
@@ -206,6 +248,89 @@ Stmt Parser::expressionStatement()
     Expr expr = expression();
     consume(TokenType::SEMICOLON, "Expect ';' after expression.");
     return make_unique<ExpressionStmt>(std::move(expr));
+}
+
+Stmt Parser::ifStatement() {
+    consume(TokenType::LEFT_PAREN, "Expect '(' after 'if'.");
+    Expr condition = expression();
+    consume(TokenType::RIGHT_PAREN, "Expect ')' after if condition.");
+    Stmt thenBranch = statement();
+
+    std::optional<Stmt> elseBranch = std::nullopt;
+    if (match({TokenType::ELSE})) 
+    {
+        elseBranch = statement();
+    }
+
+    return std::make_unique<IfStmt>(
+        std::move(condition), 
+        std::move(thenBranch), 
+        std::move(elseBranch)
+    );
+}
+
+Stmt Parser::whileStatement() 
+{
+    consume(TokenType::LEFT_PAREN, "Expect '(' after 'while'.");
+    Expr condition = expression();
+    consume(TokenType::RIGHT_PAREN, "Expect ')' after condition.");
+
+    Stmt body = statement();
+
+    return std::make_unique<WhileStmt>(std::move(condition), std::move(body));
+}
+
+Stmt Parser::forStatement() {
+    consume(TokenType::LEFT_PAREN, "Expect '(' after 'for'.");
+
+    std::optional<Stmt> initializer;
+    if (match({TokenType::SEMICOLON})) {
+        initializer = std::nullopt;
+    } else if (match({TokenType::VAR})) {
+        initializer = varDeclaration();
+    } else {
+        initializer = expressionStatement();
+    }
+
+    std::optional<Expr> condition = std::nullopt;
+    if (!check(TokenType::SEMICOLON)) 
+    {
+        condition = expression();
+    }
+    consume(TokenType::SEMICOLON, "Expect ';' after loop condition.");
+
+    std::optional<Expr> increment = std::nullopt;
+    if (!check(TokenType::RIGHT_PAREN)) 
+    {
+        increment = expression();
+    }
+    consume(TokenType::RIGHT_PAREN, "Expect ')' after for clauses.");
+
+    Stmt body = statement();
+
+    if (increment.has_value()) 
+    {
+        std::vector<Stmt> stmts;
+        stmts.push_back(std::move(body));
+        stmts.push_back(std::make_unique<ExpressionStmt>(std::move(increment.value())));
+        body = std::make_unique<Block>(std::move(stmts));
+    }
+
+    
+    if (!condition.has_value()) 
+    {
+        condition = std::make_unique<LiteralExpr>(true); 
+    }
+    body = std::make_unique<WhileStmt>(std::move(condition.value()), std::move(body));
+
+    if (initializer.has_value()) {
+        std::vector<Stmt> stmts;
+        stmts.push_back(std::move(initializer.value()));
+        stmts.push_back(std::move(body));
+        body = std::make_unique<Block>(std::move(stmts));
+    }
+
+    return body;
 }
 
 void Parser::synchronize() 

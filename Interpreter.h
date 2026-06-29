@@ -81,6 +81,26 @@ private:
             {
                 executeBlock(node->statements, std::make_shared<Environment>(environment));
             }
+            else if constexpr (is_same_v<T, IfStmt>) 
+            {
+                Literal conditionResult = evaluate(node->condition);
+
+                if (isTruthy(conditionResult)) 
+                {
+                    execute(node->thenBranch);
+                } 
+                else if (node->elseBranch.has_value()) 
+                {
+                    execute(node->elseBranch.value());
+                }
+            }
+            else if constexpr (is_same_v<T, WhileStmt>) 
+            {
+                while (isTruthy(evaluate(node->condition))) 
+                {
+                    execute(node->body);
+                }
+            }
         }, stmt);
     }
 
@@ -97,7 +117,7 @@ private:
             this->environment = previous;
             throw;
         }
-        
+
         this->environment = previous;
     }
 
@@ -186,6 +206,19 @@ public:
                 Literal value = evaluate(node->value);
                 environment->assign(node->name, value);
                 return value;
+            }
+            else if constexpr (is_same_v<T, Logical>) 
+            {
+                Literal left = evaluate(node->left);
+
+                if (node->op.type == TokenType::OR) {
+                    if (isTruthy(left)) return left;
+                }
+                else { 
+                    if (!isTruthy(left)) return left;
+                }
+
+                return evaluate(node->right);
             }
         }, expr);
     }
